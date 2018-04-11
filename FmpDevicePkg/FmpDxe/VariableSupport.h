@@ -32,6 +32,8 @@
 #define DEFAULT_VERSION                 0x1
 #define DEFAULT_LOWESTSUPPORTEDVERSION  0x0
 #define DEFAULT_LASTATTEMPT             0x0
+#define DEFAULT_REARM_ATTEMPTS 0x0
+#define DEFAULT_REARM_ATTEMPTS_ERROR 0x1111
 
 #define VARNAME_VERSION                 L"FmpVersion"
 #define VARNAME_LSV                     L"FmpLsv"
@@ -106,6 +108,28 @@ GetLastAttemptStatusFromVariable (
 UINT32
 GetLastAttemptVersionFromVariable (
   VOID
+  );
+
+/**
+  Function used to Get the FMP capsule rearm attempts from a UEFI variable.
+  This will return a default value if variable doesn't exist.
+
+  @retval  Attempts            UINT32 Rearm count from variables (Default: 0 if variable does not exist or incorrect value returned)
+**/
+UINT32 GetCapsuleRearmAttempts(
+  VOID
+  );
+
+/**
+  Function used to Set the FMP capsule rearm attempts to a UEFI variable.
+
+  @param   v                      UINT32 value to write to rearm attempts variable
+
+  @retval  EFI_SUCCESS            Value was successfully written
+  @retval  EFI_ERROR              SetVariable function failed to write value
+**/
+EFI_STATUS SetCapsuleRearmAttempts(
+  UINT32 v
   );
 
 /**

@@ -97,4 +97,22 @@ GetFmpPayloadHeaderLowestSupportedVersion (
   IN OUT UINT32       *LowestSupportedVersion
   );
 
+/**
+  function that evaluated all dependencies listed in the FmpHeader
+  and sets the Verified value to the TRUE if all are successfully met.
+
+  @param  Header    Header to evaluate
+  @param  Verified  The result of checking dependencies
+
+  @return  EFI_SUCCESS on success.
+  @return  EFI_INVALID_PARAMETER if Header is not a valid MS Fmp Header
+
+**/
+EFI_STATUS
+EFIAPI
+VerifyFmpPayloadDependencies(
+  IN      CONST VOID*   Header,
+  IN OUT  BOOLEAN*      Verified
+  );
+
 #endif

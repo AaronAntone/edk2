@@ -29,6 +29,10 @@
 #ifndef __FMP_DEVICE_LIB__
 #define __FMP_DEVICE_LIB__
 
+#define LAST_ATTEMPT_STATUS_FMP_LIB_ERROR_CODE_COUNT      20
+#define LAST_ATTEMPT_STATUS_FMP_LIB_MIN_ERROR_CODE        (LAST_ATTEMPT_STATUS_ERROR_UNSUCCESSFUL_VENDOR_RANGE_MAX - LAST_ATTEMPT_STATUS_FMP_LIB_ERROR_CODE_COUNT)
+
+
 #include <Protocol/FirmwareManagement.h>
 
 /**
@@ -341,6 +345,7 @@ FmpDeviceCheckImage (
                                 EFI_BOOT_SERVICES.AllocatePool().  It is the
                                 caller's responsibility to free this buffer with
                                 EFI_BOOT_SERVICES.FreePool().
+  @param[out] LastAttemptStatus A pointer to a uint32 that holds the last attempt status to report back to the ESRT table in case of error
 
   @retval EFI_SUCCESS            The firmware device was successfully updated
                                  with the new firmware image.
@@ -358,7 +363,8 @@ FmpDeviceSetImage (
   IN  CONST VOID                                     *VendorCode,       OPTIONAL
   IN  EFI_FIRMWARE_MANAGEMENT_UPDATE_IMAGE_PROGRESS  Progress,          OPTIONAL
   IN  UINT32                                         CapsuleFwVersion,
-  OUT CHAR16                                         **AbortReason
+  OUT CHAR16                                         **AbortReason,
+  OUT UINT32                                         *LastAttemptStatus
   );
 
 /**

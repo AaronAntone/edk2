@@ -252,6 +252,89 @@ GetLastAttemptVersionFromVariable (
   return Version;
 }
 
+/**
+  Function used to Get the FMP capsule rearm attempts from a UEFI variable.
+  This will return a default value if variable doesn't exist.
+
+  @retval  Attempts            UINT32 Rearm count from variables (Default: 0 if variable does not exist or incorrect value returned)
+**/
+UINT32
+GetCapsuleRearmAttempts(
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      *Value;
+  UINTN       Size;
+  UINT32      Attempts;
+
+
+  Value = NULL;
+  Size = 0;
+  Attempts = DEFAULT_REARM_ATTEMPTS_ERROR;
+
+  Status = GetVariable2 (VARNAME_CAPSULEREARM, &gEfiCallerIdGuid, &Value, &Size);
+  if(Status == EFI_NOT_FOUND) {
+    DEBUG((DEBUG_INFO, "Rearm attempts variable not created."));
+    return DEFAULT_REARM_ATTEMPTS;
+  }
+  //Because an error in gervariable2 can cause an infinite 
+  //capsule install attempts return an arbitrarily large number
+  else if (EFI_ERROR(Status)) {
+    DEBUG((DEBUG_ERROR, "Failed to get the Rearm attempts variable.  Status = %r\n", Status));
+    return Attempts;
+  }
+
+  //No error from call
+  if (Size == sizeof(*Value)) {
+    //
+    //successful read
+    //
+    Attempts = *Value;
+  }
+  else {
+    //
+    //return default since size was unknown
+    //
+    DEBUG((DEBUG_ERROR, "Getting rearm attempts Variable returned a size different than expected. Size = 0x%x\n", Size));
+  }
+
+  FreePool(Value);
+  return Attempts;
+}
+
+/**
+  Function used to Set the FMP capsule rearm attempts to a UEFI variable.
+
+  @param   v                      UINT32 value to write to rearm attempts variable
+
+  @retval  EFI_SUCCESS            Value was successfully written
+  @retval  EFI_ERROR              SetVariable function failed to write value
+**/
+EFI_STATUS
+SetCapsuleRearmAttempts(
+  UINT32  v
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      Current;
+  
+  Status = EFI_SUCCESS;
+  Current = GetCapsuleRearmAttempts();
+
+  if (Current != v) {
+    Status = gRT->SetVariable (VARNAME_CAPSULEREARM, &gEfiCallerIdGuid, EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS, sizeof(v), &v);
+    if (EFI_ERROR(status)) {
+        DEBUG((DEBUG_ERROR, "Failed to set the Rearm attempts variable.  Status = %r\n", Status));
+     }
+  }
+  else {
+    DEBUG((DEBUG_INFO, "Rearm attempts variable doesn't need to update.  Same value as before.\n"));
+  }
+
+  return Status;
+}
+
 
 /**
   Saves the version current of the firmware image in the firmware device to a

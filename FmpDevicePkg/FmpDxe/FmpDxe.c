@@ -38,6 +38,7 @@
 #include <Library/FmpDeviceLib.h>
 #include <Library/FmpPayloadHeaderLib.h>
 #include <Library/CapsuleUpdatePolicyLib.h>
+#include <Library/FmpHelperLib.h>
 #include <Library/HobLib.h>
 #include <Library/FmpAuthenticationLib.h>
 #include <Library/DxeServicesLib.h>
@@ -75,6 +76,24 @@ CHAR16  *mVersionName = NULL;
 
 EFI_EVENT  mFmpDeviceLockEvent;
 BOOLEAN    mFmpDeviceLocked = FALSE;
+
+/**
+Additional error codes on top of systemresourcetable.h error codes
+**/
+enum EXPANDED_ERROR_LIST
+{
+    LAST_ATTEMPT_STATUS_ERROR_GETFMPHEADER                   = LAST_ATTEMPT_STATUS_ERROR_UNSUCCESSFUL_VENDOR_RANGE_MIN,
+    LAST_ATTEMPT_STATUS_ERROR_IMAGE_INVALID                                                              ,
+    LAST_ATTEMPT_STATUS_ERROR_PROGRESS_CALLBACK_ERROR                                                    ,
+    LAST_ATTEMPT_STATUS_ERROR_CHECKPWR_API                                                               ,
+    LAST_ATTEMPT_STATUS_ERROR_CHECKSYSTHERMAL_API                                                        ,
+    LAST_ATTEMPT_STATUS_ERROR_THERMAL                                                                    ,
+    LAST_ATTEMPT_STATUS_ERROR_CHECKSYSENV_API                                                            ,
+    LAST_ATTEMPT_STATUS_ERROR_SYSTEM_ENV                                                                 ,
+    LAST_ATTEMPT_STATUS_ERROR_GETFMPHEADERSIZE                                                           ,
+    LAST_ATTEMPT_STATUS_ERROR_GETALLHEADERSIZE                                                           ,
+    LAST_ATTEMPT_STATUS_ERROR_MAX_ERROR_CODE                 = LAST_ATTEMPT_STATUS_FMP_LIB_MIN_ERROR_CODE
+};
 
 /**
   Convert a version value to a Null-terminated Unicode version string.
@@ -678,6 +697,7 @@ CheckTheImage (
   UINTN       PublicKeyDataLength;
   UINT8       *PublicKeyDataXdr;
   UINT8       *PublicKeyDataXdrEnd;
+  BOOLEAN      Verified;
 
   Status           = EFI_SUCCESS;
   RawSize          = 0;
@@ -686,6 +706,7 @@ CheckTheImage (
   Version          = 0;
   FmpHeaderSize    = 0;
   AllHeaderSize    = 0;
+  Verified         = FALSE;
 
   //
   // make sure the descriptor has already been loaded
@@ -822,6 +843,24 @@ CheckTheImage (
   }
 
   //
+  // Check the FmpPayloadHeader dependencies
+  //
+  Status = VerifyFmpPayloadDependencies(FmpPayloadHeader, &Verified);
+  if (EFI_ERROR(Status)) {
+    DEBUG((DEBUG_ERROR, "FmpDxe: CheckTheImage - VerifyMsFmpDependencies failed %r.\n", Status));
+    *ImageUpdateable = IMAGE_UPDATABLE_INVALID;
+    Status = EFI_ABORTED;
+    goto cleanup;
+  }
+
+  if (!Verified) {
+    DEBUG((DEBUG_ERROR, "FmpDxe: CheckTheImage - VerifyMsFmpDependencies returned dependencies not met.\n"));
+    *ImageUpdateable = IMAGE_UPDATABLE_DEPENDENCY_FAIL;
+    Status = EFI_SUCCESS;
+    goto cleanup;
+  }
+
+  //
   // Get the FmpHeaderSize so we can determine the real payload size
   //
   Status = GetFmpPayloadHeaderSize (FmpPayloadHeader, FmpPayloadSize, &FmpHeaderSize);
@@ -922,6 +961,7 @@ SetTheImage (
   UINTN       FmpPayloadSize;
   UINT32      AllHeaderSize;
   UINT32      IncommingFwVersion;
+  UINT32      RearmAttempts;
   UINT32      LastAttemptStatus;
 
   Status             = EFI_SUCCESS;
@@ -932,6 +972,7 @@ SetTheImage (
   FmpPayloadSize     = 0;
   AllHeaderSize      = 0;
   IncommingFwVersion = 0;
+  RearmAttempts      = 0;
   LastAttemptStatus  = LAST_ATTEMPT_STATUS_ERROR_UNSUCCESSFUL;
 
 
@@ -959,12 +1000,42 @@ SetTheImage (
     goto cleanup;
   }
 
+
+  //
+  // If dependency failed in CheckTheImage then set up the capsule
+  // to be retried. If capsule failes to install 3 times then set
+  // LastAttemptStatus to LAST_ATTEMPT_STATUS_ERROR_DEPENDENCY_NOT_MET
+  //
+  if (Updateable == IMAGE_UPDATABLE_DEPENDENCY_FAIL) {
+    Status = EFI_ABORTED;
+    RearmAttempts = GetCapsuleRearmAttempts();
+
+    if (RearmAttempts < 3) {
+      LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_IMMEDIATE_REARM;
+
+      //If setting rearm attempts fails there is potetntial for infinite capsule install attempts
+      //so immediately fallback to LAST_ATTEMPT_STATUS_ERROR_DEPENDENCY_NOT_MET
+      if(EFI_ERROR(SetCapsuleRearmAttempts(RearmAttempts+1))) {
+        DEBUG((DEBUG_ERROR, "FmpDxe: Issue setting capsule rearm attempts. Setting status to DEPENDENCY_NOT_MET.\n"));
+        LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_DEPENDENCY_NOT_MET;
+      }
+    }
+    else {
+      DEBUG((DEBUG_ERROR, "FmpDxe: Capsule failed to install after three attempts. Setting DEPENDENCY_NOT_MET.\n"));
+      LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_DEPENDENCY_NOT_MET;
+      SetCapsuleRearmAttempts(0);
+    }
+
+    goto cleanup;
+  }
+
   //
   // No functional error in CheckTheImage.  Attempt to get the Version to
   // support better error reporting.
   //
   FmpHeader = GetFmpHeader ( (EFI_FIRMWARE_IMAGE_AUTHENTICATION *)Image, ImageSize, &FmpPayloadSize );
   if (FmpHeader == NULL) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_GETFMPHEADER;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - GetFmpHeader failed.\n"));
     Status = EFI_ABORTED;
     goto cleanup;
@@ -979,6 +1050,7 @@ SetTheImage (
 
 
   if (Updateable != IMAGE_UPDATABLE_VALID) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_IMAGE_INVALID;
     DEBUG (
       (DEBUG_ERROR,
       "FmpDxed: SetTheImage() - Check The Image returned that the Image was not valid for update.  Updatable value = 0x%X.\n",
@@ -989,6 +1061,7 @@ SetTheImage (
   }
 
   if (Progress == NULL) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_PROGRESS_CALLBACK_ERROR;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - Invalid progress callback\n"));
     Status = EFI_INVALID_PARAMETER;
     goto cleanup;
@@ -1010,6 +1083,7 @@ SetTheImage (
   //
   Status = CheckSystemPower (&BooleanValue);
   if (EFI_ERROR (Status)) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_CHECKPWR_API;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - CheckSystemPower - API call failed %r.\n", Status));
     goto cleanup;
   }
@@ -1030,11 +1104,13 @@ SetTheImage (
   //
   Status = CheckSystemThermal (&BooleanValue);
   if (EFI_ERROR (Status)) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_CHECKSYSTHERMAL_API;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - CheckSystemThermal - API call failed %r.\n", Status));
     goto cleanup;
   }
   if (!BooleanValue) {
     Status = EFI_ABORTED;
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_THERMAL;
     DEBUG (
       (DEBUG_ERROR,
       "FmpDxe: SetTheImage() - CheckSystemThermal - returned False.  Update not allowed due to System Thermal.\n")
@@ -1049,11 +1125,13 @@ SetTheImage (
   //
   Status = CheckSystemEnvironment (&BooleanValue);
   if (EFI_ERROR (Status)) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_CHECKSYSENV_API;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - CheckSystemEnvironment - API call failed %r.\n", Status));
     goto cleanup;
   }
   if (!BooleanValue) {
     Status = EFI_ABORTED;
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_SYSTEM_ENV;
     DEBUG (
       (DEBUG_ERROR,
       "FmpDxe: SetTheImage() - CheckSystemEnvironment - returned False.  Update not allowed due to System Environment.\n")
@@ -1074,12 +1152,14 @@ SetTheImage (
   //
   Status = GetFmpPayloadHeaderSize (FmpHeader, FmpPayloadSize, &FmpHeaderSize);
   if (EFI_ERROR (Status)) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_GETFMPHEADERSIZE;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - GetFmpPayloadHeaderSize failed %r.\n", Status));
     goto cleanup;
   }
 
   AllHeaderSize = GetAllHeaderSize ( (EFI_FIRMWARE_IMAGE_AUTHENTICATION *)Image, FmpHeaderSize );
   if (AllHeaderSize == 0) {
+    LastAttemptStatus = LAST_ATTEMPT_STATUS_ERROR_GETALLHEADERSIZE;
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() - GetAllHeaderSize failed.\n"));
     Status = EFI_ABORTED;
     goto cleanup;
@@ -1099,7 +1179,8 @@ SetTheImage (
              VendorCode,
              FmpDxeProgress,
              IncommingFwVersion,
-             AbortReason
+             AbortReason,
+             &LastAttemptStatus
              );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "FmpDxe: SetTheImage() SetImage from FmpDeviceLib failed. Status =  %r.\n", Status));
@@ -1112,6 +1193,11 @@ SetTheImage (
   // Indicate that control has been returned from FmpDeviceLib
   //
   Progress (99);
+
+  //
+  //Update the rearm attempts stored in variable
+  //
+  SetCapsuleRearmAttempts(0);
 
   //
   // Update the version stored in variable

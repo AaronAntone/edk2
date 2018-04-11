@@ -219,6 +219,14 @@ typedef struct {
 /// rejected and SetImage will return appropriate error.
 ///
 #define IMAGE_UPDATABLE_VALID_WITH_VENDOR_CODE     0x0000000000000010
+///
+/// IMAGE_UPDATABLE_DEPENDENCY_FAIL indicates CheckImage() identified an unmet dependency.  
+/// SetImage() will reject the new image and set the Last Attempt Status to 
+/// LAST_ATTEMPT_STATUS_ERROR_IMMEDIATE_REARM or 
+/// LAST_ATTEMPT_STATUS_ERROR_DEPENDENCY_NOT_MET based on 
+/// an internal count of attempts
+///
+#define  IMAGE_UPDATABLE_DEPENDENCY_FAIL           0x0000000000000020
 
 
 //
