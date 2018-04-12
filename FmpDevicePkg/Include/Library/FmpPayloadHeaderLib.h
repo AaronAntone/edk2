@@ -5,7 +5,7 @@
   is added to the FMP Payload Header, then new services may be added to this
   library class to retrieve the new information.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without

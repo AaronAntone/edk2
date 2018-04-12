@@ -3,7 +3,7 @@
   image stored in a firmware device with platform and firmware device specific
   information provided through PCDs and libraries.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without

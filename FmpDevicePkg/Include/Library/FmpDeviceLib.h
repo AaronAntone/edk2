@@ -2,7 +2,7 @@
   Provides firmware device specific services to support updates of a firmware
   image stored in a firmware device.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without

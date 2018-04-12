@@ -2,7 +2,7 @@
   UEFI variable support functions for Firmware Management Protocol based
   firmware updates.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@
 #define DEFAULT_VERSION                 0x1
 #define DEFAULT_LOWESTSUPPORTEDVERSION  0x0
 #define DEFAULT_LASTATTEMPT             0x0
-#define DEFAULT_REARM_ATTEMPTS 0x0
-#define DEFAULT_REARM_ATTEMPTS_ERROR 0x1111
+#define DEFAULT_REARM_ATTEMPTS          0x0
+#define DEFAULT_REARM_ATTEMPTS_ERROR    0x1111
 
 #define VARNAME_VERSION                 L"FmpVersion"
 #define VARNAME_LSV                     L"FmpLsv"

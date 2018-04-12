@@ -2,7 +2,7 @@
   UEFI variable support functions for Firmware Management Protocol based
   firmware updates.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without

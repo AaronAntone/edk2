@@ -5,7 +5,7 @@
   Header.  If information is added to the FMP Payload Header, then new services
   may be added to this library class to retrieve the new information.
 
-  Copyright (c) 2016, Microsoft Corporation. All rights reserved.<BR>
+  Copyright (c) 2018, Microsoft Corporation. All rights reserved.<BR>
   Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@ typedef struct {
 // Flags to describe the expected dependency behaviour 
 
 //dependency must be in system.  Default is only if FMP instance present in system. 
-#define FW_DEPENDENCY_FLAG_REQUIRED          0x0001
+#define FW_DEPENDENCY_FLAG_REQUIRED              0x0001
 //version must match exactly.  Default is greater than or equal.
 #define FW_DEPENDENCY_FLAG_MATCH_EXACT_VERSION   0x0002
 
